@@ -1,0 +1,259 @@
+{
+  "info": {
+    "name": "API PIX - Exemplos de Requisições",
+    "description": "Collection com todos os exemplos de requisições para a API de Pagamentos PIX",
+    "version": "1.0.0"
+  },
+  "baseUrl": "https://api-pix-dev.azurewebsites.net",
+  "requests": {
+    "health_check": {
+      "name": "Verificar Status da API",
+      "method": "GET",
+      "url": "/",
+      "description": "Endpoint para verificar se a API está funcionando"
+    },
+    "pagamento_pix_v1": {
+      "name": "Criar Pagamento PIX (v1)",
+      "method": "POST",
+      "url": "/pagamento-pix",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "nome": "João Silva",
+        "email": "joao.silva@email.com",
+        "cpf": "12345678901",
+        "valor": 100.50,
+        "phone": "(11)99999-9999"
+      }
+    },
+    "pagamento_pix_v2": {
+      "name": "Criar Pagamento PIX (v2)",
+      "method": "POST",
+      "url": "/pagamento-pix-v2",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "nome": "Maria Santos",
+        "email": "maria.santos@email.com",
+        "cpf": "98765432100",
+        "valor": 250.75,
+        "phone": "(21)88888-8888"
+      }
+    },
+    "cashout_email": {
+      "name": "Saque PIX - Chave Email",
+      "method": "POST",
+      "url": "/cashout",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "amount": 150.00,
+        "pixKey": "joao.silva@email.com",
+        "pixType": "email",
+        "beneficiaryName": "João Silva",
+        "beneficiaryDocument": "12345678901",
+        "description": "Saque para conta pessoal"
+      }
+    },
+    "cashout_cpf": {
+      "name": "Saque PIX - Chave CPF",
+      "method": "POST",
+      "url": "/cashout",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "amount": 200.00,
+        "pixKey": "12345678901",
+        "pixType": "cpf",
+        "beneficiaryName": "Maria Santos",
+        "beneficiaryDocument": "12345678901",
+        "description": "Saque via CPF"
+      }
+    },
+    "cashout_phone": {
+      "name": "Saque PIX - Chave Telefone",
+      "method": "POST",
+      "url": "/cashout",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "amount": 75.50,
+        "pixKey": "+5511999999999",
+        "pixType": "phone",
+        "beneficiaryName": "Carlos Oliveira",
+        "beneficiaryDocument": "98765432100",
+        "description": "Saque via telefone"
+      }
+    },
+    "cashout_random": {
+      "name": "Saque PIX - Chave Aleatória",
+      "method": "POST",
+      "url": "/cashout",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "amount": 300.00,
+        "pixKey": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "pixType": "random",
+        "beneficiaryName": "Ana Costa",
+        "beneficiaryDocument": "11122233344",
+        "description": "Saque via chave aleatória"
+      }
+    },
+    "refund": {
+      "name": "Solicitar Reembolso",
+      "method": "POST",
+      "url": "/refund",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "id": 12345,
+        "external_reference": "REF123456789"
+      }
+    },
+    "webhook_deposito": {
+      "name": "Webhook - Depósito Aprovado",
+      "method": "POST",
+      "url": "/webhook",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "id": 12345,
+        "amount": 100.50,
+        "status": "approved",
+        "client_name": "João Silva",
+        "client_email": "joao.silva@email.com",
+        "client_cpf": "12345678901",
+        "paymentcode": "PIX123456789",
+        "paid_at": "2025-07-14T10:00:00Z",
+        "created_at": "2025-07-14T09:30:00Z"
+      }
+    },
+    "webhook_saque": {
+      "name": "Webhook - Saque Concluído",
+      "method": "POST",
+      "url": "/webhook",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "id": 12347,
+        "amount": 150.00,
+        "status": "completed",
+        "beneficiaryname": "João Silva",
+        "beneficiarydocument": "12345678901",
+        "pixkey": "joao.silva@email.com",
+        "pixtype": "email",
+        "processed_at": "2025-07-14T10:45:00Z"
+      }
+    },
+    "notificar": {
+      "name": "Endpoint de Notificação",
+      "method": "POST",
+      "url": "/notificar",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "transactionId": 12345,
+        "status": "approved",
+        "amount": 100.50,
+        "timestamp": "2025-07-14T10:00:00Z"
+      }
+    }
+  },
+  "test_scenarios": {
+    "scenario_1": {
+      "name": "Fluxo Completo - Pagamento e Notificação",
+      "description": "Teste do fluxo completo de um pagamento",
+      "steps": [
+        {
+          "step": 1,
+          "action": "Criar pagamento PIX",
+          "endpoint": "/pagamento-pix",
+          "expected": "Retorna dados do pagamento com QR Code"
+        },
+        {
+          "step": 2,
+          "action": "Simular webhook de aprovação",
+          "endpoint": "/webhook",
+          "expected": "Confirma recebimento do webhook"
+        },
+        {
+          "step": 3,
+          "action": "Verificar notificação",
+          "endpoint": "/notificar",
+          "expected": "Confirma processamento da notificação"
+        }
+      ]
+    },
+    "scenario_2": {
+      "name": "Fluxo de Saque",
+      "description": "Teste completo de saque PIX",
+      "steps": [
+        {
+          "step": 1,
+          "action": "Solicitar saque",
+          "endpoint": "/cashout",
+          "expected": "Retorna confirmação do saque"
+        },
+        {
+          "step": 2,
+          "action": "Simular webhook de conclusão",
+          "endpoint": "/webhook",
+          "expected": "Confirma conclusão do saque"
+        }
+      ]
+    },
+    "scenario_3": {
+      "name": "Fluxo de Reembolso",
+      "description": "Teste de solicitação de reembolso",
+      "steps": [
+        {
+          "step": 1,
+          "action": "Criar pagamento",
+          "endpoint": "/pagamento-pix",
+          "expected": "Pagamento criado"
+        },
+        {
+          "step": 2,
+          "action": "Solicitar reembolso",
+          "endpoint": "/refund",
+          "expected": "Reembolso processado"
+        }
+      ]
+    }
+  },
+  "validation_rules": {
+    "cpf": {
+      "format": "Apenas números",
+      "length": 11,
+      "example": "12345678901"
+    },
+    "phone": {
+      "format": "(xx)xxxxx-xxxx ou +55xxxxxxxxxxx",
+      "example": "(11)99999-9999"
+    },
+    "email": {
+      "format": "email válido",
+      "example": "usuario@email.com"
+    },
+    "amount": {
+      "format": "decimal com ponto",
+      "minimum": 0.01,
+      "example": 100.50
+    },
+    "pixType": {
+      "allowed_values": ["email", "cpf", "cnpj", "phone", "random"],
+      "description": "Tipo da chave PIX"
+    }
+  }
+}
