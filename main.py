@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request, Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 import os
@@ -22,7 +23,17 @@ DOCS_PASSWORD = os.getenv("DOCS_PASSWORD", "admin123")
 
 security = HTTPBasic()
 
+
 app = FastAPI(docs_url=None, redoc_url=None)  # Desabilita as rotas padrão
+
+# Configuração do CORS para todas as origens
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class ClientePix(BaseModel):
     nome: str
