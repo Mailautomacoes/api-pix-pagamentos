@@ -41,7 +41,6 @@ class ClientePix(BaseModel):
     cpf: str
     valor: float
     phone: str = "34998524585"
-    split: List[SplitPix]
 
 class ClientePixV2(BaseModel):
     nome: str
@@ -49,7 +48,6 @@ class ClientePixV2(BaseModel):
     cpf: str
     valor: float
     phone: str = "99999999999"
-
 
 
 class DocumentPix(BaseModel):
@@ -74,33 +72,26 @@ def read_root():
     return {"message": "Bem-vindo à API de Pagamento Pix!"}
 
 
-@app.get("/saldo")
-def saldo():
-    return consulta_saldo()
-
-
 @app.post("/pagamento-pix")
 def pagamento_pix(cliente: ClientePix, request: Request):
+    
     dados_cliente = {
         "nome": cliente.nome,
         "email": cliente.email,
         "cpf": cliente.cpf,
         "phone": cliente.phone
     }
-    split = [split.dict() for split in cliente.split]
+    
     ip_do_cliente = request.client.host
     
-    print('Cliente: ', cliente)
-    print('Valor que foi enviado: ', cliente.valor)
-    print('IP DO CLIENTE QUE SOLICITOU O SAQUE: ', ip_do_cliente)
     
     
-    return criar_pagamento_pix(dados_cliente, cliente.valor, ip_do_cliente, split)
+    return criar_pagamento_pix(dados_cliente, cliente.valor, ip_do_cliente)
 
 
 @app.post("/pagamento-pix-v2")
 def pagamento_pix_v2(cliente: ClientePixV2, request: Request):
-    print("ENTROU NA ROTA PIX V2")
+    
     ip_do_cliente = request.client.host
     
     dados_cliente = {

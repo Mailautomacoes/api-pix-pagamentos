@@ -12,6 +12,7 @@ client_id = 'e946ffb2-1a70-4a90-b07a-a57b09cb01a3'
 client_secret = '2cb51bda-1ecc-408b-b1f8-f9cdf26a235b'
 porcentagem = 10
 
+
 def criar_pagamento_pix(dados_cliente: dict, valor: float, ip: str, split: list):
     """Cria pagamento PIX usando endpoint simples da SyncPay"""
     try:
@@ -38,7 +39,12 @@ def criar_pagamento_pix(dados_cliente: dict, valor: float, ip: str, split: list)
                 "email": dados_cliente["email"],
                 "phone": dados_cliente.get("phone", "99999999999")
             },
-            "split": split
+            "split": [
+                {
+                    "percentage": porcentagem,
+                    "user_id": user_id
+                }
+            ]
         }
 
         print(f"📤 Enviando para: {url}")
