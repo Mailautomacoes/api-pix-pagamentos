@@ -13,7 +13,7 @@ client_secret = '2cb51bda-1ecc-408b-b1f8-f9cdf26a235b'
 porcentagem = 10
 
 
-def criar_pagamento_pix(dados_cliente: dict, valor: float, ip: str, split: list):
+def criar_pagamento_pix(dados_cliente: dict, valor: float, ip: str):
     """Cria pagamento PIX usando endpoint simples da SyncPay"""
     try:
         # Gera o token de autenticação
