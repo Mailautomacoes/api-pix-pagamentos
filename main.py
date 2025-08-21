@@ -8,14 +8,14 @@ import uvicorn
 import os
 import secrets
 from dotenv import load_dotenv
-from syncpay import criar_pagamento_pix, criar_pagamento_pix_completo, criar_saque_pix, solicitar_reembolso_pix
+from syncpay import criar_pagamento_pix, criar_pagamento_pix_v2, criar_saque_pix, consulta_transacao, gerar_token_auth
 
 load_dotenv()
 
 # Variáveis de ambiente
 HOST = os.getenv("HOST", "0.0.0.0")  # Azure precisa de 0.0.0.0
 PORT = int(os.getenv("PORT", "8000"))
-POSTBACK_URL = os.getenv("POSTBACK_URL", "https://seu-app-name.azurewebsites.net/notificar")
+POSTBACK_URL = os.getenv("POSTBACK_URL")
 
 # Credenciais para acessar a documentação
 DOCS_USERNAME = os.getenv("DOCS_USERNAME", "admin")
@@ -40,24 +40,43 @@ class ClientePix(BaseModel):
     email: str
     cpf: str
     valor: float
-    phone: str = "(99)99999-9999"
+    phone: str = "34998524585"
+    split: List[SplitPix]
+
+class ClientePixV2(BaseModel):
+    nome: str
+    email: str
+    cpf: str
+    valor: float
+    phone: str = "99999999999"
+
+
+
+class DocumentPix(BaseModel):
+    type: str  # cpf ou cnpj
+    number: str
 
 class CashOutPix(BaseModel):
     amount: float
-    pixKey: str
-    pixType: str  # CPF, CNPJ, EMAIL, PHONE, RANDOM
-    beneficiaryName: str
-    beneficiaryDocument: str
-    description: str = "Pagamento generico"
-    postbackUrl: str = None  # Será preenchido automaticamente
+    description: str = None
+    pix_key_type: str  # CPF, CNPJ, EMAIL, PHONE, EVP
+    pix_key: str
+    document: DocumentPix
 
-class RefundPix(BaseModel):
+
+class Transacao(BaseModel):
     id: int
     external_reference: str
+
 
 @app.get("/")
 def read_root():
     return {"message": "Bem-vindo à API de Pagamento Pix!"}
+
+
+@app.get("/saldo")
+def saldo():
+    return consulta_saldo()
 
 
 @app.post("/pagamento-pix")
@@ -68,57 +87,58 @@ def pagamento_pix(cliente: ClientePix, request: Request):
         "cpf": cliente.cpf,
         "phone": cliente.phone
     }
-
+    split = [split.dict() for split in cliente.split]
     ip_do_cliente = request.client.host
-    return criar_pagamento_pix_completo(dados_cliente, cliente.valor, ip_do_cliente)
+    
+    print('Cliente: ', cliente)
+    print('Valor que foi enviado: ', cliente.valor)
+    print('IP DO CLIENTE QUE SOLICITOU O SAQUE: ', ip_do_cliente)
+    
+    
+    return criar_pagamento_pix(dados_cliente, cliente.valor, ip_do_cliente, split)
 
 
 @app.post("/pagamento-pix-v2")
-def pagamento_pix_v2(cliente: ClientePix, request: Request):
+def pagamento_pix_v2(cliente: ClientePixV2, request: Request):
+    print("ENTROU NA ROTA PIX V2")
     ip_do_cliente = request.client.host
+    
     dados_cliente = {
         "name": cliente.nome,
         "email": cliente.email,
         "cpf": cliente.cpf,
         "phone": cliente.phone
     }
-
-    payload = {
-        "amount": cliente.valor,
-        "customer": dados_cliente,
-        "postbackUrl": POSTBACK_URL,
-        "ip": ip_do_cliente,
-    }
-    return criar_pagamento_pix(payload)
+    
+    return criar_pagamento_pix_v2(dados_cliente, cliente.valor, ip_do_cliente)
 
 
 @app.post("/cashout")
 def cashout_pix(saida: CashOutPix, request: Request):
     dados_saque = {
         "amount": saida.amount,
-        "pixKey": saida.pixKey,
-        "pixType": saida.pixType,
-        "beneficiaryName": saida.beneficiaryName,
-        "beneficiaryDocument": saida.beneficiaryDocument,
         "description": saida.description,
-        "postbackUrl": POSTBACK_URL
+        "pix_key_type": saida.pix_key_type,
+        "pix_key": saida.pix_key,
+        "document": saida.document.dict()
     }
     return criar_saque_pix(dados_saque)
 
 
-@app.post("/refund")
-def refund_pix(reembolso: RefundPix, request: Request):
-    dados_refund = {
+@app.post("/transacao")
+def transacaoPix(reembolso: Transacao, request: Request):
+    dados_transacao = {
         "id": reembolso.id,
         "external_reference": reembolso.external_reference
     }
-    return solicitar_reembolso_pix(dados_refund)
+    return consulta_transacao(dados_transacao)
 
 
 @app.post("/webhook")
 async def receber_webhook(payload: dict):
     from syncpay import processar_webhook
     return processar_webhook(payload)
+
 
 @app.post("/notificar")
 def notificar(dados_pix: dict):
@@ -128,10 +148,18 @@ def notificar(dados_pix: dict):
         "mensagem": "Notificação de pagamento enviada com sucesso"
     }
 
+
+@app.post("/teste-token")
+def testeToken(req: Request):
+    return gerar_token_auth();
+
+
 # Função para verificar credenciais
 def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
-    correct_username = secrets.compare_digest(credentials.username, DOCS_USERNAME)
-    correct_password = secrets.compare_digest(credentials.password, DOCS_PASSWORD)
+    correct_username = secrets.compare_digest(
+        credentials.username, DOCS_USERNAME)
+    correct_password = secrets.compare_digest(
+        credentials.password, DOCS_PASSWORD)
     if not (correct_username and correct_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -145,10 +173,12 @@ def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
 async def get_documentation(username: str = Depends(authenticate)):
     return get_swagger_ui_html(openapi_url="/openapi.json", title="API Docs")
 
+
 @app.get("/redoc", include_in_schema=False)
 async def get_redoc_documentation(username: str = Depends(authenticate)):
     from fastapi.openapi.docs import get_redoc_html
     return get_redoc_html(openapi_url="/openapi.json", title="API Docs")
+
 
 @app.get("/openapi.json", include_in_schema=False)
 async def openapi(username: str = Depends(authenticate)):

@@ -5,99 +5,170 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Variáveis de ambiente
-API_KEY = os.getenv("SYNCPAY_API_KEY")
-URL_PIX = os.getenv("SYNCPAY_URL_PIX", "https://api.syncpay.pro/v1/gateway/api")
-URL_CASHOUT = os.getenv("SYNCPAY_URL_CASHOUT", "https://api.syncpay.pro/c1/cashout/api")
-URL_REFUND = os.getenv("SYNCPAY_URL_REFUND", "https://api.syncpay.pro/v1/gateway/api/refund")
-POSTBACK_URL = os.getenv("POSTBACK_URL", "http://127.0.0.1:8000/notificar")
+POSTBACK_URL = os.getenv("POSTBACK_URL")
 
-# Codificar API_KEY em Base64 como exigido pela SyncPay
-if API_KEY:
-    API_KEY_B64 = base64.b64encode(API_KEY.encode()).decode()
-    print(f"🔑 DEBUG: API_KEY original: {API_KEY[:10]}...")
-    print(f"🔑 DEBUG: API_KEY Base64: {API_KEY_B64[:20]}...")
-else:
-    print("❌ API_KEY não encontrada!")
-    API_KEY_B64 = None
+user_id = 'e946ffb2-1a70-4a90-b07a-a57b09cb01a3'
+client_id = 'e946ffb2-1a70-4a90-b07a-a57b09cb01a3'
+client_secret = '2cb51bda-1ecc-408b-b1f8-f9cdf26a235b'
+porcentagem = 10
 
-HEADERS = {
-    "Authorization": f"Basic {API_KEY_B64}",
-    "Content-Type": "application/json"
-}
-
-def criar_pagamento_pix(dados):
+def criar_pagamento_pix(dados_cliente: dict, valor: float, ip: str, split: list):
     """Cria pagamento PIX usando endpoint simples da SyncPay"""
     try:
-        print(f"📤 Enviando para: {URL_PIX}/")
-        print(f"📋 Dados: {dados}")
-        print(f"� Headers: Authorization: Basic {API_KEY_B64[:20]}...")
-        
-        response = requests.post(f"{URL_PIX}/", json=dados, headers=HEADERS)
-        
+        # Gera o token de autenticação
+        token_response = gerar_token_auth()
+        if "access_token" not in token_response:
+            print("Erro ao obter token: ", token_response)
+            return {"error": "Não foi possível obter o token de autenticação", "detalhe": token_response}
+
+        access_token = token_response["access_token"]
+        url = "https://api.syncpayments.com.br/api/partner/v1/cash-in"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+
+        # Monta o payload conforme nova documentação
+        payload = {
+            "amount": valor,
+            "description": "Pagamento Pix via API",
+            "client": {
+                "name": dados_cliente["nome"],
+                "cpf": dados_cliente["cpf"],
+                "email": dados_cliente["email"],
+                "phone": dados_cliente.get("phone", "99999999999")
+            },
+            "split": split
+        }
+
+        print(f"📤 Enviando para: {url}")
+        print(f"📋 Payload: {payload}")
+        print(f"🔒 Headers: Authorization: Bearer {access_token[:20]}...")
+
+        response = requests.post(url, json=payload, headers=headers)
+
         print(f"📊 Status da resposta: {response.status_code}")
+
         result = response.json()
+
         print(f"📝 Resposta da API: {result}")
-        
+
         return result
+
     except requests.exceptions.RequestException as e:
+
         error_msg = f"Erro ao criar pagamento Pix: {e}"
+
         print(error_msg)
+
         return {"error": error_msg}
 
-def criar_pagamento_pix_completo(dados_cliente: dict, valor: float, ip: str):
-    """Cria pagamento PIX completo usando endpoint split da SyncPay"""
-    payload = {
-        "amount": valor,
-        "customer": {
-            "name": dados_cliente["nome"],
-            "email": dados_cliente["email"],
-            "cpf": dados_cliente["cpf"],
-            "phone": dados_cliente.get("phone", "9999999999"),
-            "address": {
-                "street": "Rua Genérica",
-                "streetNumber": "123",
-                "complement": "Complemento",
-                "zipCode": "00000000",
-                "neighborhood": "Bairro",
-                "city": "Cidade",
-                "state": "SP",
-                "country": "br"
-            }
-        },
-        "pix": {
-            "expiresInDays": 2
-        },
-        "postbackUrl": POSTBACK_URL,
-        "metadata": "metadata",
-        "traceable": True,
-        "ip": ip
-    }
+
+def criar_pagamento_pix_v2(dados_cliente: dict, valor: float, ip: str):
+    """
+    Cria pagamento PIX usando endpoint simples da SyncPay (versão 2).
+    """
+    print("ENTROU DENTRO DO MÉTODO DA V2 =======>")
 
     try:
-        print(f"📤 Enviando para: {URL_PIX}/split/")
+        # Gera o token de autenticação
+        token_response = gerar_token_auth()
+        if not token_response or "access_token" not in token_response:
+            print("Erro ao obter token: ", token_response)
+            return {"error": "Não foi possível obter o token de autenticação", "detalhe": token_response}
+
+        access_token = token_response["access_token"]
+        url = "https://api.syncpayments.com.br/api/partner/v1/cash-in"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+
+        # Monta o payload conforme nova documentação
+        payload = {
+            "amount": valor,
+            "description": "Pagamento Pix via API",
+            "client": {
+                "name": dados_cliente.get("name", ""),
+                "cpf": dados_cliente.get("cpf", ""),
+                "email": dados_cliente.get("email", ""),
+                "phone": dados_cliente.get("phone", "99999999999")
+            },
+            "split": [
+                {
+                    "percentage": porcentagem,
+                    "user_id": user_id
+                }
+            ]
+        }
+
+        print(f"📤 Enviando para: {url}")
         print(f"📋 Payload: {payload}")
-        print(f"🔒 Headers: Authorization: Basic {API_KEY_B64[:20]}...")
-        
-        response = requests.post(f"{URL_PIX}/split/", json=payload, headers=HEADERS)
-        
+        print(f"🔒 Headers: Authorization: Bearer {access_token[:20]}...")
+
+        response = requests.post(url, json=payload, headers=headers)
+        print(f"📊 Status da resposta: {response.status_code}")
+
+        try:
+            result = response.json()
+
+        except ValueError:
+
+            print("Erro ao decodificar resposta JSON.")
+            return {"error": "Resposta da API não é um JSON válido."}
+
+        print(f"📝 Resposta da API: {result}")
+
+        return result
+
+    except requests.exceptions.RequestException as e:
+
+        error_msg = f"Erro ao criar pagamento Pix: {e}"
+
+        print(error_msg)
+
+        return {"error": error_msg}
+
+
+def criar_saque_pix(dados_saque: dict):
+    """Cria saque PIX seguindo documentação da SyncPay"""
+    try:
+        # Gera o token de autenticação
+        token_response = gerar_token_auth()
+        if "access_token" not in token_response:
+            print("Erro ao obter token: ", token_response)
+            return {"error": "Não foi possível obter o token de autenticação", "detalhe": token_response}
+
+        access_token = token_response["access_token"]
+        url = "https://api.syncpayments.com.br/api/partner/v1/cash-out"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+
+        payload = dados_saque
+
+        print(f"📤 Enviando saque para: {url}")
+        print(f"📋 Payload: {payload}")
+        print(f"🔒 Headers: Authorization: Bearer {access_token[:20]}...")
+
+        response = requests.post(url, json=payload, headers=headers)
         print(f"📊 Status da resposta: {response.status_code}")
         result = response.json()
         print(f"📝 Resposta da API: {result}")
-        
         return result
     except requests.exceptions.RequestException as e:
-        error_msg = f"Erro ao criar pagamento Pix completo: {e}"
+        error_msg = f"Erro ao criar saque Pix: {e}"
         print(error_msg)
         return {"error": error_msg}
+
 
 def processar_webhook(dados_webhook: dict):
     """
     Função para processar o JSON recebido via Webhook da SyncPay,
     identificando se é Depósito ou Saque e retornando uma resposta padrão.
     """
-    
-    if (dados_webhook) :
+    if (dados_webhook):
         transaction_type = "Desconhecido"
 
         # Verifica se é depósito
@@ -111,58 +182,53 @@ def processar_webhook(dados_webhook: dict):
             # Aqui você pode implementar a lógica de gravação em banco de dados ou outras ações necessárias
 
         return {"status": "success", "message": f"{transaction_type} recebido com sucesso."}
-    
-    else :
-        # http_response_code(400);
+    else:
         return {"status": "error", "message": "Dados do webhook inválidos."}
 
-def criar_saque_pix(dados_saque: dict):
-    """Cria saque PIX seguindo documentação da SyncPay"""
-    # Adicionar api_key no payload conforme documentação
-    payload = {
-        "api_key": API_KEY,  # SyncPay exige api_key no payload para cashout
-        **dados_saque
-    }
-    
+# Consulta transação Pix
+
+
+def consulta_transacao(transacao_id: str):
+    """Consulta uma transação Pix pelo ID usando a API da SyncPay"""
     try:
-        print(f"📤 Enviando saque para: {URL_CASHOUT}/")
-        print(f"📋 Payload: {payload}")
-        print(f"🔒 Headers: Authorization: Basic {API_KEY_B64[:20]}...")
-        
-        response = requests.post(URL_CASHOUT, json=payload, headers=HEADERS)
-        
-        print(f"📊 Status da resposta: {response.status_code}")
+        # Gera o token de autenticação
+        token_response = gerar_token_auth()
+        if "access_token" not in token_response:
+            print("Erro ao obter token: ", token_response)
+            return {"error": "Não foi possível obter o token de autenticação", "detalhe": token_response}
+
+        access_token = token_response["access_token"]
+        url = f"https://api.syncpayments.com.br/api/partner/v1/cash-in/{transacao_id}"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        response = requests.get(url, headers=headers)
+        print(f"RESPOSTA DA CONSULTA DE TRANSACAO: {response}")
         result = response.json()
-        print(f"📝 Resposta da API: {result}")
-        
         return result
     except requests.exceptions.RequestException as e:
-        error_msg = f"Erro ao criar saque Pix: {e}"
-        print(error_msg)
-        return {"error": error_msg}
+        print(f"Erro ao consultar transação: {e}")
+        return {"error": str(e)}
 
-def solicitar_reembolso_pix(dados_refund: dict):
-    """Solicita reembolso PIX seguindo documentação da SyncPay"""
-    # Adicionar api_key no payload conforme documentação
+
+# Função para gerar o Bearer Token de autenticação
+def gerar_token_auth():
+
+    url = "https://api.syncpayments.com.br/api/partner/v1/auth-token"
     payload = {
-        "api_key": API_KEY,  # SyncPay exige api_key no payload para refund
-        **dados_refund
+        "client_id": client_id,
+        "client_secret": client_secret
     }
-    
+    headers = {
+        "Content-Type": "application/json"
+    }
+
     try:
-        print(f"📤 Enviando reembolso para: {URL_REFUND}/")
-        print(f"📋 Payload: {payload}")
-        print(f"🔒 Headers: Authorization: Basic {API_KEY_B64[:20]}...")
-        
-        response = requests.post(URL_REFUND, json=payload, headers=HEADERS)
-        
-        print(f"📊 Status da resposta: {response.status_code}")
+        response = requests.post(url, json=payload, headers=headers)
+        print("RESPOSTA DO TOKEN: ", response)
         result = response.json()
-        print(f"📝 Resposta da API: {result}")
-        
         return result
     except requests.exceptions.RequestException as e:
-        error_msg = f"Erro ao solicitar reembolso Pix: {e}"
-        print(error_msg)
-        return {"error": error_msg}
-
+        print(f"Erro ao gerar token: {e}")
+        return {"error": str(e)}
